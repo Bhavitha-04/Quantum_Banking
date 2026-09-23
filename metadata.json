@@ -1,0 +1,8 @@
+{
+  "name": "Remix QuantumBank - Quantum-Secure Banking \u0026 BB84 Simulator",
+  "description": "An end-to-end, quantum-secure banking transaction simulator featuring BB84 Quantum Key Distribution, eavesdropper intercept-resend attack detection, AES-256-GCM encryption, and cryptographic audit ledger.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
