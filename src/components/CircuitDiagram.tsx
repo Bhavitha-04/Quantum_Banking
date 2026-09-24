@@ -51,6 +51,11 @@ export const CircuitDiagram: React.FC<CircuitDiagramProps> = ({
             <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/20 border border-emerald-400"></span>
             Bob (Measurement)
           </span>
+          {bb84Result.evePresent && (
+            <span className="px-2 py-0.5 rounded bg-rose-950/80 border border-rose-500 text-rose-300 font-bold text-[10px] tracking-wide animate-pulse">
+              🚨 EVE INTERCEPTION ACTIVE
+            </span>
+          )}
         </div>
       </div>
 
@@ -62,7 +67,7 @@ export const CircuitDiagram: React.FC<CircuitDiagramProps> = ({
         <defs>
           <linearGradient id="channelGrad" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.4" />
-            <stop offset="50%" stopColor={bb84Result.evePresent ? "#f43f5e" : "#0284c7"} stopOpacity="0.6" />
+            <stop offset="50%" stopColor={bb84Result.evePresent ? "#f43f5e" : "#0284c7"} stopOpacity="0.8" />
             <stop offset="100%" stopColor="#10b981" stopOpacity="0.4" />
           </linearGradient>
         </defs>
@@ -71,12 +76,28 @@ export const CircuitDiagram: React.FC<CircuitDiagramProps> = ({
         <text x={colAlicePrep + 35} y={16} fill="#94a3b8" fontSize="10" textAnchor="middle" fontWeight="600">
           ALICE ENCODING
         </text>
-        <text x={colEveBox} y={16} fill={bb84Result.evePresent ? "#fb7185" : "#64748b"} fontSize="10" textAnchor="middle" fontWeight="600">
-          {bb84Result.evePresent ? 'EVE INTERCEPT / RESEND' : 'QUANTUM FIBER CHANNEL'}
+        <text x={colEveBox} y={16} fill={bb84Result.evePresent ? "#fb7185" : "#64748b"} fontSize="10" textAnchor="middle" fontWeight="700">
+          {bb84Result.evePresent ? '⚠️ EVE INTERCEPT / RESEND LAYER' : 'QUANTUM FIBER CHANNEL'}
         </text>
         <text x={colBobBasis + 40} y={16} fill="#94a3b8" fontSize="10" textAnchor="middle" fontWeight="600">
           BOB MEASUREMENT
         </text>
+
+        {/* Highlight column background when Eve is active */}
+        {bb84Result.evePresent && (
+          <rect
+            x={colEveBox - 55}
+            y={24}
+            width={110}
+            height={totalHeight - 34}
+            rx={6}
+            fill="#4c0519"
+            fillOpacity="0.25"
+            stroke="#f43f5e"
+            strokeWidth="1"
+            strokeDasharray="3 3"
+          />
+        )}
 
         {qubits.map((q, idx) => {
           const y = 44 + idx * rowHeight;

@@ -3,7 +3,7 @@ import { BankAccount, BankUser } from '../types/quantum';
 import { CurrencyCode, CURRENCIES, SUPPORTED_CURRENCY_CODES } from '../lib/currency';
 import { RefreshCw, LogOut, Globe } from 'lucide-react';
 
-export type NavTab = 'banking' | 'quantum' | 'security' | 'verification' | 'tests' | 'code';
+export type NavTab = 'banking' | 'quantum' | 'security' | 'verification' | 'tests';
 
 interface HeaderProps {
   activeTab: NavTab;
@@ -93,16 +93,6 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             Test Suite
-          </button>
-          <button
-            onClick={() => onSelectTab('code')}
-            className={`transition-colors pb-0.5 whitespace-nowrap ${
-              activeTab === 'code'
-                ? 'text-cyan-400 border-b-2 border-cyan-400 font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Python Code
           </button>
         </nav>
 

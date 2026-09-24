@@ -126,7 +126,8 @@ export const SecurityLog: React.FC<SecurityLogProps> = ({ onSelectTxForVerificat
                 <div className="absolute bottom-full mb-1 hidden group-hover:block z-30 bg-slate-900 border border-slate-700 text-[10px] text-slate-200 p-1.5 rounded whitespace-nowrap shadow-xl">
                   <div className="font-bold">{log.txId}</div>
                   <div>QBER: {log.qberPercentage.toFixed(1)}%</div>
-                  <div>{log.status}</div>
+                  <div>Status: {isAborted ? 'Aborted (Eve)' : 'Committed'}</div>
+                  {isAborted && <div className="text-rose-400 font-mono">Reason: EAVESDROPPER_DETECTED</div>}
                 </div>
               </div>
             );
@@ -143,23 +144,25 @@ export const SecurityLog: React.FC<SecurityLogProps> = ({ onSelectTxForVerificat
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by Tx ID, account, name..."
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+            className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500"
           />
         </div>
 
         <div className="flex items-center gap-1.5 w-full sm:w-auto">
-          <span className="text-xs text-slate-400 mr-1 hidden sm:inline">Status:</span>
+          <span className="text-xs text-slate-400 mr-1 hidden sm:inline">Status Filter:</span>
           {(['ALL', 'COMMITTED', 'ABORTED'] as const).map(st => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${
+              className={`px-3 py-1 text-xs font-medium rounded-lg border transition-colors cursor-pointer ${
                 statusFilter === st
-                  ? 'bg-slate-800 border-cyan-500/60 text-cyan-300'
+                  ? st === 'ABORTED'
+                    ? 'bg-rose-950/60 border-rose-500/60 text-rose-300'
+                    : 'bg-slate-800 border-cyan-500/60 text-cyan-300'
                   : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
               }`}
             >
-              {st === 'ALL' ? 'All Records' : st === 'COMMITTED' ? 'Committed Only' : 'Aborted (Intrusions)'}
+              {st === 'ALL' ? 'All' : st === 'COMMITTED' ? 'Committed' : 'Aborted'}
             </button>
           ))}
         </div>
@@ -242,10 +245,15 @@ export const SecurityLog: React.FC<SecurityLogProps> = ({ onSelectTxForVerificat
                             Committed
                           </span>
                         ) : (
-                          <span className="text-rose-400 font-semibold flex items-center justify-center gap-1">
-                            <AlertTriangle className="w-3.5 h-3.5" />
-                            Aborted
-                          </span>
+                          <div className="flex flex-col items-center">
+                            <span className="text-rose-400 font-semibold flex items-center justify-center gap-1">
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              Aborted (Eve)
+                            </span>
+                            <span className="text-[10px] text-rose-400/90 font-mono mt-0.5">
+                              Reason: EAVESDROPPER_DETECTED
+                            </span>
+                          </div>
                         )}
                       </td>
                       <td className="py-3 px-4">

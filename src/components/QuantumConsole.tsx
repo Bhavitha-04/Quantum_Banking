@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BB84Result } from '../types/quantum';
 import { runBB84Protocol } from '../lib/bb84';
 import { CircuitDiagram } from './CircuitDiagram';
+import { useQuantumStore } from '../lib/quantumStore';
 import {
   Radio,
   ShieldCheck,
@@ -21,12 +22,20 @@ interface QuantumConsoleProps {
 }
 
 export const QuantumConsole: React.FC<QuantumConsoleProps> = ({ onKeyDerived }) => {
+  const [storedRun, updateRun] = useQuantumStore();
   const [activeTab, setActiveTab] = useState<'single' | 'compare' | 'montecarlo'>('single');
-  const [numQubits, setNumQubits] = useState<number>(32);
-  const [evePresent, setEvePresent] = useState<boolean>(false);
-  const [currentResult, setCurrentResult] = useState<BB84Result>(() =>
-    runBB84Protocol({ numBits: 32, evePresent: false })
-  );
+  const [numQubits, setNumQubits] = useState<number>(() => storedRun.result.numBits || 32);
+  const [evePresent, setEvePresent] = useState<boolean>(() => storedRun.eveStatus);
+  const [currentResult, setCurrentResult] = useState<BB84Result>(() => storedRun.result);
+
+  // Synchronize state whenever a new run is loaded from storage (e.g. from Inspect in Quantum Console)
+  useEffect(() => {
+    setCurrentResult(storedRun.result);
+    setEvePresent(storedRun.eveStatus);
+    if (storedRun.result.numBits) {
+      setNumQubits(storedRun.result.numBits);
+    }
+  }, [storedRun]);
 
   // Side-by-side comparison state
   const [compareNoEve, setCompareNoEve] = useState<BB84Result | null>(null);
@@ -38,11 +47,14 @@ export const QuantumConsole: React.FC<QuantumConsoleProps> = ({ onKeyDerived }) 
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
 
   const handleRunSingle = () => {
+    // When user clicks "Generate Fresh BB84 Key", ignore stored state and run fresh simulation
+    // using the current Eve dropdown value and qubit count
     const res = runBB84Protocol({
       numBits: numQubits,
       evePresent,
     });
     setCurrentResult(res);
+    updateRun(res, 'manual');
     if (onKeyDerived && res.isSecure) {
       onKeyDerived(res.derivedAesKeyHex);
     }
@@ -134,6 +146,38 @@ export const QuantumConsole: React.FC<QuantumConsoleProps> = ({ onKeyDerived }) 
       {/* VIEW 1: SINGLE PROTOCOL LAB */}
       {activeTab === 'single' && (
         <div className="space-y-6">
+          {/* Transaction State Banner (When inspecting a transaction) */}
+          {storedRun.source === 'transaction' && (
+            <div className={`border rounded-xl px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
+              currentResult.isSecure && currentResult.qberPercentage <= 11
+                ? 'bg-emerald-950/40 border-emerald-800/70 text-emerald-200'
+                : 'bg-rose-950/50 border-rose-800/80 text-rose-200'
+            }`}>
+              <div className="flex items-center gap-2">
+                <span className={`w-2.5 h-2.5 rounded-full ${
+                  currentResult.isSecure && currentResult.qberPercentage <= 11 ? 'bg-emerald-400' : 'bg-rose-500 animate-pulse'
+                }`} />
+                <span className="font-semibold">
+                  {currentResult.isSecure && currentResult.qberPercentage <= 11
+                    ? 'Inspecting Banking Transaction: Verified Secure Transmission (Eve Disabled)'
+                    : 'Inspecting Banking Transaction: Aborted Transmission (Eavesdropper Intercept Detected)'}
+                </span>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  · {new Date(storedRun.timestamp).toLocaleTimeString()}
+                </span>
+              </div>
+              <div className="text-[11px] font-mono flex items-center gap-2">
+                <span>Observed QBER: <strong className={currentResult.isSecure && currentResult.qberPercentage <= 11 ? 'text-emerald-300' : 'text-rose-300'}>{currentResult.qberPercentage.toFixed(1)}%</strong></span>
+                <span>·</span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                  currentResult.isSecure && currentResult.qberPercentage <= 11 ? 'bg-emerald-900/60 text-emerald-300' : 'bg-rose-900/70 text-rose-300'
+                }`}>
+                  {currentResult.isSecure && currentResult.qberPercentage <= 11 ? 'COMMITTED' : 'ABORTED'}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Controls Bar */}
           <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-6">
@@ -159,23 +203,33 @@ export const QuantumConsole: React.FC<QuantumConsoleProps> = ({ onKeyDerived }) 
                 </div>
               </div>
 
-              {/* Eve Toggle */}
+              {/* Eavesdropper (Eve) Dropdown */}
               <div>
                 <label className="block text-[11px] font-medium text-slate-400 mb-1">
                   Eavesdropper (Eve)
                 </label>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setEvePresent(!evePresent)}
-                    className={`px-3 py-1 text-xs font-medium rounded-lg border transition-colors flex items-center gap-1.5 ${
+                <div className="relative inline-block">
+                  <select
+                    value={evePresent ? 'ON' : 'OFF'}
+                    onChange={(e) => setEvePresent(e.target.value === 'ON')}
+                    className={`appearance-none text-xs font-semibold rounded-lg pl-3 pr-8 py-1.5 border transition-all cursor-pointer ${
                       evePresent
-                        ? 'bg-rose-950/60 border-rose-500/80 text-rose-300'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                        ? 'bg-rose-950/80 border-rose-500 text-rose-300 font-bold focus:ring-1 focus:ring-rose-500 shadow-sm shadow-rose-950/50'
+                        : 'bg-slate-950 border-slate-700 text-slate-300 focus:ring-1 focus:ring-cyan-500'
                     }`}
                   >
-                    <span className={`w-2 h-2 rounded-full ${evePresent ? 'bg-rose-500 animate-pulse' : 'bg-slate-600'}`} />
-                    {evePresent ? 'Eve Active (Intercept-Resend)' : 'Eve Disabled (Nominal)'}
-                  </button>
+                    <option value="OFF" className="bg-slate-900 text-slate-200 font-medium">
+                      Eve Disabled (Nominal)
+                    </option>
+                    <option value="ON" className="bg-slate-900 text-rose-400 font-semibold">
+                      Eve Intercept (Active)
+                    </option>
+                  </select>
+                  <div className={`pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 ${evePresent ? 'text-rose-400' : 'text-slate-400'}`}>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
                 </div>
               </div>
             </div>
@@ -183,7 +237,7 @@ export const QuantumConsole: React.FC<QuantumConsoleProps> = ({ onKeyDerived }) 
             {/* Run Button */}
             <button
               onClick={handleRunSingle}
-              className="px-4 py-2 text-xs font-semibold text-slate-950 bg-cyan-400 hover:bg-cyan-300 rounded-lg shadow-md shadow-cyan-950/40 transition-colors flex items-center gap-2"
+              className="px-4 py-2 text-xs font-semibold text-slate-950 bg-cyan-400 hover:bg-cyan-300 rounded-lg shadow-md shadow-cyan-950/40 transition-colors flex items-center gap-2 cursor-pointer"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
               Generate Fresh BB84 Key
@@ -197,7 +251,7 @@ export const QuantumConsole: React.FC<QuantumConsoleProps> = ({ onKeyDerived }) 
               <div className="flex items-baseline gap-2 mt-1">
                 <span
                   className={`text-2xl font-bold font-mono tabular-nums ${
-                    currentResult.qberPercentage > 11 ? 'text-rose-400' : 'text-emerald-400'
+                    currentResult.qberPercentage > 11 || !currentResult.isSecure ? 'text-rose-400' : 'text-emerald-400'
                   }`}
                 >
                   {currentResult.qberPercentage.toFixed(1)}%
@@ -209,7 +263,7 @@ export const QuantumConsole: React.FC<QuantumConsoleProps> = ({ onKeyDerived }) 
             <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
               <span className="text-[11px] text-slate-400 block">Channel Decision</span>
               <div className="mt-1 flex items-center gap-1.5">
-                {currentResult.isSecure ? (
+                {currentResult.isSecure && currentResult.qberPercentage <= 11 && !currentResult.thresholdExceeded ? (
                   <>
                     <ShieldCheck className="w-4 h-4 text-emerald-400" />
                     <span className="text-sm font-bold text-emerald-400">SECURE (Accepted)</span>
@@ -217,7 +271,7 @@ export const QuantumConsole: React.FC<QuantumConsoleProps> = ({ onKeyDerived }) 
                 ) : (
                   <>
                     <ShieldAlert className="w-4 h-4 text-rose-400" />
-                    <span className="text-sm font-bold text-rose-400">COMPROMISED (Aborted)</span>
+                    <span className="text-sm font-bold text-rose-400">🚨 COMPROMISED (Rejected)</span>
                   </>
                 )}
               </div>
@@ -226,19 +280,29 @@ export const QuantumConsole: React.FC<QuantumConsoleProps> = ({ onKeyDerived }) 
             <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
               <span className="text-[11px] text-slate-400 block">Sifted Key Length</span>
               <span className="text-2xl font-bold font-mono text-white mt-1 block tabular-nums">
-                {currentResult.siftedIndices.length} bits
+                {currentResult.siftedIndices?.length ?? currentResult.aliceSiftedKey?.length ?? 0} bits
               </span>
               <span className="text-[11px] text-slate-500">
-                ({currentResult.sacrificedIndices.length} sacrificed for QBER test)
+                ({currentResult.sacrificedIndices?.length ?? 0} sacrificed for QBER test)
               </span>
             </div>
 
             <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
               <span className="text-[11px] text-slate-400 block">Privacy Amplified AES Key</span>
-              <div className="mt-1 font-mono text-xs text-cyan-300 truncate" title={currentResult.derivedAesKeyHex}>
-                {currentResult.isSecure ? `${currentResult.derivedAesKeyHex.slice(0, 16)}...` : 'DISCARDED'}
+              <div className="mt-1 font-mono text-xs truncate">
+                {currentResult.isSecure && currentResult.qberPercentage <= 11 && currentResult.derivedAesKeyHex ? (
+                  <span className="text-cyan-300 font-mono text-xs" title={currentResult.derivedAesKeyHex}>
+                    {currentResult.derivedAesKeyHex.slice(0, 16)}...
+                  </span>
+                ) : (
+                  <span className="text-rose-400 font-bold tracking-tight text-[11px]">
+                    KEY DISCARDED — CHANNEL COMPROMISED
+                  </span>
+                )}
               </div>
-              <span className="text-[11px] text-slate-500">Fixed 256-bit symmetric key</span>
+              <span className="text-[11px] text-slate-500">
+                {currentResult.isSecure && currentResult.qberPercentage <= 11 ? 'Fixed 256-bit symmetric key' : 'Zero financial payload encrypted'}
+              </span>
             </div>
           </div>
 

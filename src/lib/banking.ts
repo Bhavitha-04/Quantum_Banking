@@ -25,6 +25,7 @@ import {
   getExchangeRate,
   toUSD,
 } from './currency';
+import { quantumStore } from './quantumStore';
 
 const STORAGE_KEY_USERS = 'quantumbank_users_v2';
 const STORAGE_KEY_ACCOUNTS = 'quantumbank_accounts_v2';
@@ -411,16 +412,18 @@ export class BankingLedger {
     amount: number;
     sendCurrency?: CurrencyCode;
     note?: string;
-    evePresent: boolean;
+    evePresent?: boolean;
+    eveEnabled?: boolean;
     numQubits?: number;
     simulateTampering?: boolean;
   }): Promise<PipelineExecutionResult> {
+    const isEve = Boolean(params.eveEnabled ?? params.evePresent ?? false);
+    const evePresent = isEve;
     const {
       senderAccountId,
       receiverAccountId,
       amount,
       note,
-      evePresent,
       numQubits = 32,
       simulateTampering = false,
     } = params;
@@ -533,10 +536,13 @@ export class BankingLedger {
       eveInterceptRate: 1.0,
     });
 
+    // Record the exact BB84 state in shared quantumStore for inspection and analysis
+    quantumStore.setLastRun(bb84Result, 'transaction');
+
     // ==========================================
     // STEP 2: Evaluate QBER against 11% Threshold
     // ==========================================
-    if (bb84Result.thresholdExceeded || !bb84Result.isSecure) {
+    if (bb84Result.thresholdExceeded || !bb84Result.isSecure || bb84Result.qber > 0.11 || evePresent) {
       // Eavesdropper disturbance detected!
       const abortRecord: AuditRecord = {
         txId,
@@ -581,7 +587,7 @@ export class BankingLedger {
           nonce,
           note,
         },
-        securityNotes: `CRITICAL ALERT: Eavesdropping disturbance detected on quantum channel! QBER is ${bb84Result.qberPercentage.toFixed(1)}%, exceeding maximum theoretical bound of 11.0%. Key discarded; zero financial funds transferred.`,
+        securityNotes: `CRITICAL ALERT: Eavesdropping disturbance detected on quantum channel! QBER is ${bb84Result.qberPercentage.toFixed(1)}%, exceeding maximum theoretical bound of 11.0%. Reason: EAVESDROPPER_DETECTED. Key discarded; zero financial funds transferred.`,
       };
 
       // Atomic Rollback: No balances modified!

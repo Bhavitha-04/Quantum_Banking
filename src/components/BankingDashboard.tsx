@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BankAccount, AuditRecord } from '../types/quantum';
+import { BankAccount, AuditRecord, BB84Result } from '../types/quantum';
 import { bankingLedger, PipelineExecutionResult } from '../lib/banking';
 import {
   CurrencyCode,
@@ -32,7 +32,7 @@ interface BankingDashboardProps {
   globalCurrency: CurrencyCode | 'AUTO';
   onRefresh: () => void;
   onViewAudit: () => void;
-  onViewQuantumConsole: () => void;
+  onViewQuantumConsole: (bb84Result?: BB84Result) => void;
 }
 
 export const BankingDashboard: React.FC<BankingDashboardProps> = ({
@@ -124,6 +124,7 @@ export const BankingDashboard: React.FC<BankingDashboardProps> = ({
         sendCurrency,
         note,
         evePresent,
+        eveEnabled: evePresent,
         numQubits: qubitCount,
       });
 
@@ -144,7 +145,7 @@ export const BankingDashboard: React.FC<BankingDashboardProps> = ({
       } else {
         setToastMessage({
           type: 'error',
-          message: `Transaction ABORTED! ${result.errorMessage}`
+          message: `Transaction Aborted (Eavesdropper Detected)! QBER: ${result.bb84Result.qberPercentage.toFixed(1)}% > 11.0% threshold. Balances preserved.`
         });
       }
 
@@ -298,7 +299,7 @@ export const BankingDashboard: React.FC<BankingDashboardProps> = ({
 
           <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
             <button
-              onClick={onViewQuantumConsole}
+              onClick={() => onViewQuantumConsole()}
               className="text-xs text-cyan-400 hover:text-cyan-300 font-medium flex items-center gap-1 transition-colors"
             >
               Open Quantum Console
@@ -441,33 +442,39 @@ export const BankingDashboard: React.FC<BankingDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setEvePresent(false)}
-                  className={`p-2 rounded-lg border text-left transition-colors ${
+                  className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
                     !evePresent
-                      ? 'bg-cyan-950/40 border-cyan-500/50 text-cyan-200'
-                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                      ? 'bg-emerald-950/60 border-emerald-500 text-emerald-100 ring-1 ring-emerald-500/50 shadow-sm'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
                   }`}
                 >
-                  <span className="font-semibold block text-xs">Nominal Link</span>
-                  <span className="text-[11px] opacity-80">Eve OFF (QBER ≈ 0%)</span>
+                  <div className="flex items-center gap-1.5 font-semibold text-xs text-white">
+                    <span className={`w-2 h-2 rounded-full ${!evePresent ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                    Nominal Link
+                  </div>
+                  <span className="text-[11px] text-emerald-400/90 block mt-0.5">Eve OFF (QBER ≈ 0%)</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setEvePresent(true)}
-                  className={`p-2 rounded-lg border text-left transition-colors ${
+                  className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
                     evePresent
-                      ? 'bg-rose-950/40 border-rose-500/50 text-rose-200'
-                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                      ? 'bg-rose-950/60 border-rose-500 text-rose-100 ring-1 ring-rose-500/50 shadow-sm'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
                   }`}
                 >
-                  <span className="font-semibold block text-xs text-rose-400">Eve Intercept</span>
-                  <span className="text-[11px] opacity-80">Eve ON (QBER ≈ 25%)</span>
+                  <div className="flex items-center gap-1.5 font-semibold text-xs text-rose-400">
+                    <span className={`w-2 h-2 rounded-full ${evePresent ? 'bg-rose-500 animate-pulse' : 'bg-slate-600'}`} />
+                    Eve Intercept
+                  </div>
+                  <span className="text-[11px] text-rose-400/90 block mt-0.5">Eve ON (QBER ≈ 25%)</span>
                 </button>
               </div>
 
               <div className="text-[11px] text-slate-400 leading-normal">
                 {evePresent ? (
-                  <span className="text-rose-400">
+                  <span className="text-rose-400 font-medium">
                     ⚠️ Attack simulation active: Eve will intercept and resend each photon, disturbing quantum states by ~25% and triggering an automatic transaction abort!
                   </span>
                 ) : (
@@ -482,10 +489,10 @@ export const BankingDashboard: React.FC<BankingDashboardProps> = ({
             <button
               type="submit"
               disabled={isProcessing || sendAmount <= 0 || currentAccount.balance < debitFromSender}
-              className={`w-full py-2.5 px-4 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
+              className={`w-full py-2.5 px-4 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 evePresent
-                  ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-950/50'
-                  : 'bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold shadow-lg shadow-cyan-950/50'
+                  ? 'bg-rose-600 hover:bg-rose-500 text-white font-bold shadow-lg shadow-rose-950/50'
+                  : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold shadow-lg shadow-emerald-950/50'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {isProcessing ? (
@@ -495,7 +502,7 @@ export const BankingDashboard: React.FC<BankingDashboardProps> = ({
                 </>
               ) : (
                 <>
-                  <span>Send {evePresent ? 'Compromised' : 'Quantum-Secure'} Transfer</span>
+                  <span>{evePresent ? 'Send Compromised Transfer' : 'Send Secure Transfer'}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </>
               )}
@@ -714,11 +721,13 @@ export const BankingDashboard: React.FC<BankingDashboardProps> = ({
                 <div className="mt-4 flex items-center justify-end gap-3">
                   <button
                     onClick={() => {
+                      const bb84 = executionResult?.bb84Result;
                       setShowExecutionModal(false);
-                      onViewQuantumConsole();
+                      onViewQuantumConsole(bb84);
                     }}
-                    className="px-3 py-1.5 text-xs text-slate-300 hover:text-white bg-slate-800 rounded-lg border border-slate-700 transition-colors"
+                    className="px-3.5 py-1.5 text-xs font-medium text-cyan-300 hover:text-white bg-slate-800 hover:bg-slate-750 rounded-lg border border-cyan-500/40 hover:border-cyan-400 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-cyan-950/40"
                   >
+                    <Radio className="w-3.5 h-3.5 text-cyan-400" />
                     Inspect in Quantum Console
                   </button>
                   <button

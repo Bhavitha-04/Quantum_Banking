@@ -11,10 +11,10 @@ import { QuantumConsole } from './components/QuantumConsole';
 import { SecurityLog } from './components/SecurityLog';
 import { VerificationPortal } from './components/VerificationPortal';
 import { TestMetricsView } from './components/TestMetricsView';
-import { PythonReferenceModal } from './components/PythonReferenceModal';
 import { bankingLedger } from './lib/banking';
-import { BankAccount, BankUser } from './types/quantum';
+import { BankAccount, BankUser, BB84Result } from './types/quantum';
 import { CurrencyCode } from './lib/currency';
+import { quantumStore } from './lib/quantumStore';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<BankUser | null>(() => bankingLedger.getCurrentUser());
@@ -91,7 +91,12 @@ export default function App() {
             globalCurrency={globalCurrency}
             onRefresh={refreshAccounts}
             onViewAudit={() => setActiveTab('security')}
-            onViewQuantumConsole={() => setActiveTab('quantum')}
+            onViewQuantumConsole={(bb84Result?: BB84Result) => {
+              if (bb84Result) {
+                quantumStore.setLastRun(bb84Result, 'transaction');
+              }
+              setActiveTab('quantum');
+            }}
           />
         )}
 
@@ -115,10 +120,6 @@ export default function App() {
 
         {activeTab === 'tests' && (
           <TestMetricsView />
-        )}
-
-        {activeTab === 'code' && (
-          <PythonReferenceModal />
         )}
       </main>
 

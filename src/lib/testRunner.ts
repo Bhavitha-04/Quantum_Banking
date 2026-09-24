@@ -206,26 +206,26 @@ export async function runFullTestSuite(): Promise<{
   // Test (e): Fund transfers are atomic (ACID balance conservation)
   {
     const start = performance.now();
-    const aliceBefore = bankingLedger.getAccount('QB-7701-4491')?.balance ?? 0;
     const bobBefore = bankingLedger.getAccount('QB-3309-8812')?.balance ?? 0;
-    const totalBefore = aliceBefore + bobBefore;
+    const charlieBefore = bankingLedger.getAccount('QB-5510-9923')?.balance ?? 0;
+    const totalBefore = bobBefore + charlieBefore;
     const transferAmount = 100.0;
 
     const res = await bankingLedger.executePipeline({
-      senderAccountId: 'QB-7701-4491',
-      receiverAccountId: 'QB-3309-8812',
+      senderAccountId: 'QB-3309-8812',
+      receiverAccountId: 'QB-5510-9923',
       amount: transferAmount,
       note: 'Atomic transfer conservation test',
       evePresent: false, // Ensure channel is secure for normal transfer
     });
 
-    const aliceAfter = bankingLedger.getAccount('QB-7701-4491')?.balance ?? 0;
     const bobAfter = bankingLedger.getAccount('QB-3309-8812')?.balance ?? 0;
-    const totalAfter = aliceAfter + bobAfter;
+    const charlieAfter = bankingLedger.getAccount('QB-5510-9923')?.balance ?? 0;
+    const totalAfter = bobAfter + charlieAfter;
 
     const conserved = Math.abs(totalAfter - totalBefore) < 0.001;
-    const debitMatches = Math.abs((aliceBefore - aliceAfter) - transferAmount) < 0.001;
-    const creditMatches = Math.abs((bobAfter - bobBefore) - transferAmount) < 0.001;
+    const debitMatches = Math.abs((bobBefore - bobAfter) - transferAmount) < 0.001;
+    const creditMatches = Math.abs((charlieAfter - charlieBefore) - transferAmount) < 0.001;
 
     const passed = res.success && conserved && debitMatches && creditMatches;
     const duration = performance.now() - start;
